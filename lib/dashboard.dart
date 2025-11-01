@@ -8,152 +8,116 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  // Data barang berisi Map dengan key: nama, jumlah, harga
-  List<Map<String, dynamic>> barangList = [
-    {"nama": "Kursi", "jumlah": 10, "harga": 150000},
-    {"nama": "Meja", "jumlah": 5, "harga": 300000},
-    {"nama": "Laptop", "jumlah": 3, "harga": 7500000},
-    {"nama": "Buku", "jumlah": 20, "harga": 25000},
+  List<Map<String, dynamic>> items = [
+    {"nama": "Kopi Hitam", "jumlah": 10, "harga": 15000},
+    {"nama": "Teh Botol", "jumlah": 20, "harga": 8000},
+    {"nama": "Roti Bakar", "jumlah": 5, "harga": 12000},
   ];
 
   void _tambahBarang() {
-    TextEditingController namaController = TextEditingController();
-    TextEditingController jumlahController = TextEditingController();
-    TextEditingController hargaController = TextEditingController();
+    _showFormDialog();
+  }
 
+  void _editBarang(int index) {
+    _showFormDialog(index: index, item: items[index]);
+  }
+
+  void _hapusBarang(int index) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tambah Barang"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: namaController,
-                decoration: const InputDecoration(
-                  labelText: "Nama Barang",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: jumlahController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Jumlah",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: hargaController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Harga",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
+        title: const Text("Hapus Barang"),
+        content: Text(
+          "Apakah kamu yakin ingin menghapus '${items[index]['nama']}'?",
         ),
         actions: [
           TextButton(
-            child: const Text("Batal"),
             onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF016B61),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () {
-              if (namaController.text.isNotEmpty &&
-                  jumlahController.text.isNotEmpty &&
-                  hargaController.text.isNotEmpty) {
-                setState(() {
-                  barangList.add({
-                    "nama": namaController.text,
-                    "jumlah": int.tryParse(jumlahController.text) ?? 0,
-                    "harga": int.tryParse(hargaController.text) ?? 0,
-                  });
-                });
-                Navigator.pop(context);
-              }
+              setState(() {
+                items.removeAt(index);
+              });
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Barang berhasil dihapus")),
+              );
             },
-            child: const Text("Simpan"),
+            child: const Text("Hapus"),
           ),
         ],
       ),
     );
   }
 
-  void _editBarang(int index) {
-    TextEditingController namaController = TextEditingController(
-      text: barangList[index]["nama"],
+  void _showFormDialog({int? index, Map<String, dynamic>? item}) {
+    final TextEditingController namaController = TextEditingController(
+      text: item != null ? item['nama'] : '',
     );
-    TextEditingController jumlahController = TextEditingController(
-      text: barangList[index]["jumlah"].toString(),
+    final TextEditingController jumlahController = TextEditingController(
+      text: item != null ? item['jumlah'].toString() : '',
     );
-    TextEditingController hargaController = TextEditingController(
-      text: barangList[index]["harga"].toString(),
+    final TextEditingController hargaController = TextEditingController(
+      text: item != null ? item['harga'].toString() : '',
     );
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Edit Barang"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: namaController,
-                decoration: const InputDecoration(
-                  labelText: "Nama Barang",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: jumlahController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Jumlah",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: hargaController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Harga",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
+        title: Text(index == null ? "Tambah Barang" : "Edit Barang"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: namaController,
+              decoration: const InputDecoration(labelText: "Nama Barang"),
+            ),
+            TextField(
+              controller: jumlahController,
+              decoration: const InputDecoration(labelText: "Jumlah"),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: hargaController,
+              decoration: const InputDecoration(labelText: "Harga"),
+              keyboardType: TextInputType.number,
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            child: const Text("Batal"),
             onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
           ),
           ElevatedButton(
+            onPressed: () {
+              final nama = namaController.text.trim();
+              final jumlah = int.tryParse(jumlahController.text) ?? 0;
+              final harga = int.tryParse(hargaController.text) ?? 0;
+
+              if (nama.isNotEmpty && jumlah > 0 && harga > 0) {
+                setState(() {
+                  if (index == null) {
+                    items.add({"nama": nama, "jumlah": jumlah, "harga": harga});
+                  } else {
+                    items[index] = {
+                      "nama": nama,
+                      "jumlah": jumlah,
+                      "harga": harga,
+                    };
+                  }
+                });
+                Navigator.pop(context);
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF016B61),
             ),
-            onPressed: () {
-              setState(() {
-                barangList[index] = {
-                  "nama": namaController.text,
-                  "jumlah": int.tryParse(jumlahController.text) ?? 0,
-                  "harga": int.tryParse(hargaController.text) ?? 0,
-                };
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("Update"),
+            child: const Text("Simpan"),
           ),
         ],
       ),
@@ -163,7 +127,6 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Background gradasi sesuai login
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -173,158 +136,101 @@ class _DashboardState extends State<Dashboard> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.dashboard_outlined,
-                        color: Color(0xFF016B61),
-                        size: 30,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          "Dashboard Barang",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF016B61),
-                          ),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: _tambahBarang,
-                        icon: const Icon(Icons.add),
-                        label: const Text("Tambah"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF016B61),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 5,
-                        ),
-                      ),
-                    ],
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Dashboard Barang - Putu Gede 5E",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-
-              // List Barang
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: ListView.builder(
-                    itemCount: barangList.length,
-                    itemBuilder: (context, index) {
-                      final barang = barangList[index];
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                        margin: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 4,
-                        ),
-                        elevation: 3,
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: const Color(0xFF70B2B2),
-                            child: Text(
-                              barang["nama"][0].toUpperCase(),
+                      ],
+                    ),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.2),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: ListTile(
+                            title: Text(
+                              item['nama'],
                               style: const TextStyle(
-                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
+                                fontSize: 18,
                               ),
                             ),
-                          ),
-                          title: Text(
-                            barang["nama"],
-                            style: const TextStyle(
-                              fontSize: 18,
-                              color: Color(0xFF016B61),
-                              fontWeight: FontWeight.w600,
+                            subtitle: Text(
+                              "Jumlah: ${item['jumlah']} | Harga: Rp${item['harga']}",
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 15,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.orangeAccent,
+                                  ),
+                                  onPressed: () => _editBarang(index),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.redAccent,
+                                  ),
+                                  onPressed: () => _hapusBarang(index),
+                                ),
+                              ],
                             ),
                           ),
-                          subtitle: Text(
-                            "Jumlah: ${barang["jumlah"]} | Harga: Rp ${barang["harga"].toString()}",
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 14,
-                            ),
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              color: Color(0xFF016B61),
-                            ),
-                            onPressed: () => _editBarang(index),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // Tombol Logout
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  icon: const Icon(Icons.logout),
-                  label: const Text("Logout"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF016B61),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFF016B61)),
+                        );
+                      },
                     ),
-                    elevation: 3,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _tambahBarang,
+        backgroundColor: const Color(0xFF016B61),
+        icon: const Icon(Icons.add),
+        label: const Text(""),
       ),
     );
   }
