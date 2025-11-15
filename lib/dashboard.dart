@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'main.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -8,78 +12,190 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  List<Map<String, dynamic>> items = [
-    {"nama": "Kopi Hitam", "jumlah": 10, "harga": 15000},
-    {"nama": "Teh Botol", "jumlah": 20, "harga": 8000},
-    {"nama": "Roti Bakar", "jumlah": 5, "harga": 12000},
-  ];
+  List<Map<String, dynamic>> items = [];
+  List<Map<String, dynamic>> filteredItems = [];
+  bool _isLoading = true;
+  String? _error;
+  final TextEditingController searchController = TextEditingController();
+  Timer? _debounce;
 
-  void _tambahBarang() {
-    _showFormDialog();
+  final String _apiUrl = "http://127.0.0.1:8000/api/barang";
+
+  // Sorting
+  bool _sortByName = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+    searchController.addListener(_onSearchChanged);
   }
 
-  void _editBarang(int index) {
-    _showFormDialog(index: index, item: items[index]);
+  @override
+  void dispose() {
+    searchController.removeListener(_onSearchChanged);
+    searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
   }
 
-  void _hapusBarang(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Hapus Barang"),
-        content: Text(
-          "Apakah kamu yakin ingin menghapus '${items[index]['nama']}'?",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () {
-              setState(() {
-                items.removeAt(index);
-              });
-              Navigator.pop(context);
+  /// ---------------------------
+  /// GET DATA DARI API
+  /// ---------------------------
+  Future<void> _fetchData() async {
+    if (!mounted) return;
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Barang berhasil dihapus")),
-              );
-            },
-            child: const Text("Hapus"),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse(_apiUrl))
+          .timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List) {
+          items = List<Map<String, dynamic>>.from(data);
+          _applySearchAndSort();
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          _error = "Gagal memuat data. Status: ${response.statusCode}";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = "Terjadi kesalahan: $e";
+        _isLoading = false;
+      });
+    }
   }
 
-  void _showFormDialog({int? index, Map<String, dynamic>? item}) {
+  /// ---------------------------
+  /// SEARCH DENGAN DEBOUNCE
+  /// ---------------------------
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _applySearchAndSort();
+    });
+  }
+
+  /// ---------------------------
+  /// FILTER & SORT SEARCH
+  /// ---------------------------
+  void _applySearchAndSort() {
+    final query = searchController.text.toLowerCase();
+
+    filteredItems = items
+        .where((item) => item['nama'].toString().toLowerCase().contains(query))
+        .toList();
+
+    if (_sortByName) {
+      filteredItems.sort(
+        (a, b) => a['nama'].toString().compareTo(b['nama'].toString()),
+      );
+    } else {
+      filteredItems.sort(
+        (a, b) => (a['harga'] as int).compareTo(b['harga'] as int),
+      );
+    }
+
+    if (mounted) setState(() {});
+  }
+
+  /// ---------------------------
+  /// POST / PUT / DELETE
+  /// ---------------------------
+  Future<void> _postBarang(String nama, int harga) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({"nama": nama, "harga": harga}),
+      );
+      if (!mounted) return;
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        _fetchData();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
+
+  Future<void> _updateBarang(int id, String nama, int harga) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$_apiUrl/$id"),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({"nama": nama, "harga": harga}),
+      );
+      if (!mounted) return;
+      if (response.statusCode == 200) _fetchData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
+
+  Future<void> _deleteBarang(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$_apiUrl/$id"),
+        headers: {'Accept': 'application/json'},
+      );
+      if (!mounted) return;
+      if (response.statusCode == 200) _fetchData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
+
+  /// ---------------------------
+  /// FORM TAMBAH / EDIT
+  /// ---------------------------
+  void _showFormDialog({Map<String, dynamic>? item}) {
     final TextEditingController namaController = TextEditingController(
-      text: item != null ? item['nama'] : '',
-    );
-    final TextEditingController jumlahController = TextEditingController(
-      text: item != null ? item['jumlah'].toString() : '',
+      text: item != null ? item["nama"] : "",
     );
     final TextEditingController hargaController = TextEditingController(
-      text: item != null ? item['harga'].toString() : '',
+      text: item != null ? item["harga"].toString() : "",
     );
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(index == null ? "Tambah Barang" : "Edit Barang"),
+        title: Text(item == null ? "Tambah Barang" : "Edit Barang"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: namaController,
               decoration: const InputDecoration(labelText: "Nama Barang"),
-            ),
-            TextField(
-              controller: jumlahController,
-              decoration: const InputDecoration(labelText: "Jumlah"),
-              keyboardType: TextInputType.number,
             ),
             TextField(
               controller: hargaController,
@@ -94,29 +210,18 @@ class _DashboardState extends State<Dashboard> {
             child: const Text("Batal"),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
             onPressed: () {
               final nama = namaController.text.trim();
-              final jumlah = int.tryParse(jumlahController.text) ?? 0;
               final harga = int.tryParse(hargaController.text) ?? 0;
-
-              if (nama.isNotEmpty && jumlah > 0 && harga > 0) {
-                setState(() {
-                  if (index == null) {
-                    items.add({"nama": nama, "jumlah": jumlah, "harga": harga});
-                  } else {
-                    items[index] = {
-                      "nama": nama,
-                      "jumlah": jumlah,
-                      "harga": harga,
-                    };
-                  }
-                });
-                Navigator.pop(context);
+              if (nama.isEmpty || harga <= 0) return;
+              if (item == null) {
+                _postBarang(nama, harga);
+              } else {
+                _updateBarang(item["id"], nama, harga);
               }
+              Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF016B61),
-            ),
             child: const Text("Simpan"),
           ),
         ],
@@ -124,114 +229,139 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF016B61), Color(0xFF70B2B2)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  /// ---------------------------
+  /// HAPUS DENGAN DIALOG
+  /// ---------------------------
+  void _hapusBarangDialog(int index) {
+    final id = filteredItems[index]["id"];
+    final nama = filteredItems[index]["nama"];
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Barang"),
+        content: Text("Yakin ingin menghapus '$nama'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Dashboard Barang - Putu Gede 5E",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: ListTile(
-                            title: Text(
-                              item['nama'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                            subtitle: Text(
-                              "Jumlah: ${item['jumlah']} | Harga: Rp${item['harga']}",
-                              style: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 15,
-                              ),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.orangeAccent,
-                                  ),
-                                  onPressed: () => _editBarang(index),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.redAccent,
-                                  ),
-                                  onPressed: () => _hapusBarang(index),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteBarang(id);
+            },
+            child: const Text("Hapus"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ---------------------------
+  /// UI TAMPILAN LIST BARANG
+  /// ---------------------------
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!));
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              labelText: "Cari barang...",
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: Row(
+            children: [
+              const Text("Sort by: "),
+              DropdownButton<bool>(
+                value: _sortByName,
+                items: const [
+                  DropdownMenuItem(value: true, child: Text("Nama")),
+                  DropdownMenuItem(value: false, child: Text("Harga")),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _sortByName = value;
+                    _applySearchAndSort();
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: filteredItems.length,
+            itemBuilder: (context, index) {
+              final item = filteredItems[index];
+              return Card(
+                margin: const EdgeInsets.all(12),
+                child: ListTile(
+                  title: Text(item['nama']),
+                  subtitle: Text("Rp ${item['harga']}"),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: () => _showFormDialog(item: item),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _hapusBarangDialog(index),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// ---------------------------
+  /// HALAMAN UTAMA
+  /// ---------------------------
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Dashboard Barang"),
+        backgroundColor: Colors.teal,
+        actions: [
+          IconButton(
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+              );
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _tambahBarang,
-        backgroundColor: const Color(0xFF016B61),
-        icon: const Icon(Icons.add),
-        label: const Text(""),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.teal,
+        onPressed: () => _showFormDialog(),
+        child: const Icon(Icons.add),
       ),
+      body: _buildBody(),
     );
   }
 }

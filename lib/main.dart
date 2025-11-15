@@ -38,18 +38,21 @@ class _LoginPageState extends State<LoginPage> {
     String password = _passwordController.text.trim();
 
     if (username == "admin" && password == "1234") {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Login Berhasil!")));
 
       // Arahkan ke halaman Dashboard
       Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Dashboard()),
         );
       });
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Username atau Password salah!")),
       );
@@ -62,9 +65,9 @@ class _LoginPageState extends State<LoginPage> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
+            colors: const [
               Color(0xFF016B61), // Hijau tua
               Color(0xFF70B2B2), // Toska muda
             ],
@@ -81,11 +84,12 @@ class _LoginPageState extends State<LoginPage> {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
+                  // Ganti withOpacity deprecated dengan withAlpha
+                  color: Colors.white.withAlpha((0.95 * 255).round()),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withAlpha((0.15 * 255).round()),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
                     ),
